@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HackXplore Preview</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300..700&family=Geist:wght@300..700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0b;--surface:#111113;--border:#27272a;--accent:#b026ff;--text:#f4f4f5;--muted:#a1a1aa}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Geist',sans-serif;background:#0a0a0b;color:#f4f4f5;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.mono{font-family:'Geist Mono',monospace}
+::selection{background:#b026ff;color:#0a0a0b}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:#0a0a0b}
+::-webkit-scrollbar-thumb{background:#27272a;border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:#b026ff}
+
+/* Chamfer clips */
+.clip-tl{clip-path:polygon(1.2rem 0,100% 0,100% 100%,0 100%,0 1.2rem)}
+.clip-tr{clip-path:polygon(0 0,calc(100% - 1.2rem) 0,100% 1.2rem,100% 100%,0 100%)}
+.clip-br{clip-path:polygon(0 0,100% 0,100% calc(100% - 1.2rem),calc(100% - 1.2rem) 100%,0 100%)}
+.clip-both{clip-path:polygon(0 0,calc(100% - 1.2rem) 0,100% 1.2rem,100% 100%,1.2rem 100%,0 calc(100% - 1.2rem))}
+.clip-sm{clip-path:polygon(0 0,calc(100% - .7rem) 0,100% .7rem,100% 100%,.7rem 100%,0 calc(100% - .7rem))}
+
+/* Shimmer anim */
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@keyframes pulse-glow{0%,100%{box-shadow:0 0 0 0 rgba(176,38,255,.4)}50%{box-shadow:0 0 0 6px rgba(176,38,255,0)}}
+@keyframes fade-up{from{opacity:0;transform:translateY(1rem)}to{opacity:1;transform:translateY(0)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+.fade-up{animation:fade-up .6s cubic-bezier(.16,1,.3,1) both}
+.delay-1{animation-delay:.1s}.delay-2{animation-delay:.2s}.delay-3{animation-delay:.3s}.delay-4{animation-delay:.4s}
+
+/* Card hover glow */
+.card-glow{transition:all .3s ease;border:1px solid #27272a}
+.card-glow:hover{border-color:rgba(176,38,255,.35);box-shadow:0 0 0 1px rgba(176,38,255,.1),0 8px 32px rgba(0,0,0,.4)}
+
+/* Gradient text */
+.grad-text{background:linear-gradient(90deg,#b026ff,#ff26b9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+/* Progress bar */
+.prog-bar{height:3px;background:#27272a;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,#b026ff,#ff26b9);transition:width .5s ease}
+
+/* Pill badge */
+.badge{display:inline-flex;align-items:center;gap:.35rem;font-family:'Geist Mono',monospace;font-size:.625rem;text-transform:uppercase;letter-spacing:.1em;padding:.25rem .625rem;border:1px solid;border-radius:0}
+
+/* Section label */
+.sec-label{display:flex;align-items:center;gap:.75rem;font-family:'Geist Mono',monospace;font-size:.6875rem;color:#71717a;text-transform:uppercase;letter-spacing:.15em;margin-bottom:1.5rem}
+.sec-label::before{content:'';display:block;width:1.5rem;height:1px;background:#b026ff}
+
+/* Noise overlay */
+.noise{position:fixed;inset:0;z-index:100;pointer-events:none;opacity:.02;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* Canvas */
+#nc{position:absolute;inset:0;pointer-events:none;opacity:.4;mask-image:linear-gradient(to bottom,black 40%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,black 40%,transparent 100%)}
+
+/* Filter pills */
+.filter-pill{font-family:'Geist Mono',monospace;font-size:.625rem;text-transform:uppercase;letter-spacing:.1em;padding:.375rem .875rem;border:1px solid #27272a;color:#71717a;cursor:pointer;transition:all .2s;background:transparent}
+.filter-pill:hover,.filter-pill.active{border-color:rgba(176,38,255,.5);color:#b026ff;background:rgba(176,38,255,.05)}
+
+/* CTA button */
+.cta-btn{display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(90deg,#b026ff,#ff26b9);color:#0a0a0b;font-family:'Geist',sans-serif;font-weight:600;font-size:.875rem;letter-spacing:.05em;text-transform:uppercase;padding:.875rem 2rem;border:none;cursor:pointer;transition:opacity .2s;clip-path:polygon(0 0,calc(100% - .625rem) 0,100% .625rem,100% 100%,.625rem 100%,0 calc(100% - .625rem))}
+.cta-btn:hover{opacity:.88}
+.cta-ghost{background:transparent;border:1px solid #27272a;color:#a1a1aa}
+.cta-ghost:hover{border-color:rgba(176,38,255,.5);color:#b026ff;clip-path:polygon(0 0,calc(100% - .625rem) 0,100% .625rem,100% 100%,.625rem 100%,0 calc(100% - .625rem))}
+
+/* Hackathon card specifics */
+.hcard{background:linear-gradient(180deg,#161618,#0f0f11);border:1px solid #27272a;transition:all .35s cubic-bezier(.16,1,.3,1);clip-path:polygon(0 0,calc(100% - 1.25rem) 0,100% 1.25rem,100% 100%,1.25rem 100%,0 calc(100% - 1.25rem))}
+.hcard:hover{border-color:rgba(176,38,255,.35);transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,0,0,.5)}
+
+/* Internship card */
+.icard{background:#111113;border:1px solid #27272a;transition:all .35s;clip-path:polygon(0 0,100% 0,100% calc(100% - 1.25rem),calc(100% - 1.25rem) 100%,0 100%)}
+.icard:hover{border-color:rgba(176,38,255,.3);box-shadow:0 8px 30px rgba(0,0,0,.4)}
+
+/* Scholarship card */
+.scard{background:#0e0e10;border:1px solid #27272a;transition:all .35s}
+.scard:hover{border-color:rgba(176,38,255,.25);box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.scard.featured{border-color:rgba(176,38,255,.4);box-shadow:0 4px 40px rgba(176,38,255,.07)}
+</style>
+</head>
+<body>
+
+<div class="noise"></div>
+
+<!-- NAV -->
+<nav style="position:fixed;top:0;left:0;width:100%;z-index:50;backdrop-filter:blur(20px);background:rgba(10,10,11,.75);border-bottom:1px solid #27272a40">
+  <div style="max-width:84rem;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:4.5rem">
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M2 2L12 22L22 2H16L12 10L8 2H2Z" fill="#b026ff"/></svg>
+      <span style="font-weight:700;font-size:1.2rem;letter-spacing:-.04em;color:#f4f4f5;text-transform:uppercase">HackXplore</span>
+    </div>
+    <div style="display:flex;gap:2rem;font-size:.875rem;font-weight:500">
+      <a href="#home" style="color:#a1a1aa;text-decoration:none;transition:color .2s" onmouseover="this.style.color='#f4f4f5'" onmouseout="this.style.color='#a1a1aa'">Home</a>
+      <a href="#hackathons" style="color:#a1a1aa;text-decoration:none;transition:color .2s" onmouseover="this.style.color='#f4f4f5'" onmouseout="this.style.color='#a1a1aa'">Hackathons</a>
+      <a href="#internships" style="color:#a1a1aa;text-decoration:none;transition:color .2s" onmouseover="this.style.color='#f4f4f5'" onmouseout="this.style.color='#a1a1aa'">Internships</a>
+      <a href="#scholarships" style="color:#a1a1aa;text-decoration:none;transition:color .2s" onmouseover="this.style.color='#f4f4f5'" onmouseout="this.style.color='#a1a1aa'">Scholarships</a>
+    </div>
+    <button class="cta-btn" style="padding:.6rem 1.5rem;font-size:.75rem">Explore Now</button>
+  </div>
+  <div style="background:#111113;border-bottom:1px solid #27272a;height:1.5rem;display:flex;align-items:center;padding:0 1.5rem;overflow:hidden">
+    <div class="mono" style="font-size:.625rem;color:#71717a;text-transform:uppercase;letter-spacing:.15em;display:flex;gap:1.5rem;white-space:nowrap">
+      <span style="display:flex;align-items:center;gap:.5rem"><span style="width:6px;height:6px;border-radius:50%;background:#b026ff;animation:pulse-glow 2s infinite"></span>Platform Active</span>
+      <span style="color:#27272a">|</span>
+      <span>Latency: <span id="ping">12</span>ms</span>
+      <span style="color:#27272a">|</span>
+      <span>Opportunities: 2,840+</span>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="home" style="position:relative;min-height:95vh;display:flex;align-items:center;padding:8rem 0 6rem;overflow:hidden">
+  <canvas id="nc"></canvas>
+  <div style="max-width:84rem;margin:0 auto;padding:0 1.5rem;position:relative;z-index:10;width:100%">
+    <div style="max-width:55rem">
+      <!-- Badge -->
+      <div class="badge fade-up" style="color:#b026ff;border-color:rgba(176,38,255,.25);background:rgba(176,38,255,.05);margin-bottom:2rem;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px))">
+        ⚡ Platform v3.0 — Now Live
+      </div>
+      <!-- H1 -->
+      <h1 class="fade-up delay-1" style="font-size:clamp(3.5rem,7.5vw,7rem);font-weight:700;letter-spacing:-.04em;line-height:1.02;color:#f4f4f5;margin-bottom:1.5rem">
+        Discover. Connect.<br>
+        <span class="grad-text">Hack. Grow.</span>
+      </h1>
+      <!-- Sub -->
+      <p class="fade-up delay-2" style="font-size:clamp(1.125rem,1.5vw,1.375rem);color:#a1a1aa;max-width:38rem;line-height:1.6;margin-bottom:2.5rem">
+        Your one-stop platform to discover world-class hackathons, internships, and scholarships. Built for students and builders who refuse to wait.
+      </p>
+      <!-- CTAs -->
+      <div class="fade-up delay-3" style="display:flex;gap:1.25rem;align-items:center;flex-wrap:wrap;margin-bottom:4rem">
+        <a href="#hackathons" class="cta-btn">Explore Opportunities →</a>
+        <a href="#metrics" style="display:flex;align-items:center;gap:.75rem;color:#a1a1aa;text-decoration:none;font-weight:500;font-size:.9375rem;transition:color .2s" onmouseover="this.style.color='#f4f4f5'" onmouseout="this.style.color='#a1a1aa'">
+          <span style="width:2rem;height:1px;background:#27272a;display:inline-block"></span>View Live Stats
+        </a>
+      </div>
+      <!-- Stats -->
+      <div class="fade-up delay-4" style="display:grid;grid-template-columns:repeat(3,1fr);gap:2rem;max-width:28rem">
+        <div><div style="font-size:1.5rem;font-weight:700;color:#f4f4f5;letter-spacing:-.03em">2,840+</div><div class="mono" style="font-size:.5625rem;color:#71717a;text-transform:uppercase;letter-spacing:.15em;margin-top:.25rem">Opportunities</div></div>
+        <div><div style="font-size:1.5rem;font-weight:700;color:#f4f4f5;letter-spacing:-.03em">180+</div><div class="mono" style="font-size:.5625rem;color:#71717a;text-transform:uppercase;letter-spacing:.15em;margin-top:.25rem">Countries</div></div>
+        <div><div style="font-size:1.5rem;font-weight:700;color:#f4f4f5;letter-spacing:-.03em">$4.2M+</div><div class="mono" style="font-size:.5625rem;color:#71717a;text-transform:uppercase;letter-spacing:.15em;margin-top:.25rem">Prize Money</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HACKATHONS -->
+<section id="hackathons" style="padding:6rem 0;background:#0a0a0b;border-top:1px solid #27272a">
+  <div style="max-width:84rem;margin:0 auto;padding:0 1.5rem">
+    <div class="sec-label">Phase_01 // Hackathons</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2rem;margin-bottom:3rem;flex-wrap:wrap">
+      <div>
+        <h2 style="font-size:clamp(2rem,4vw,3rem);font-weight:600;letter-spacing:-.04em;color:#f4f4f5;line-height:1.1">Compete. Build. Win.</h2>
+        <p style="color:#a1a1aa;margin-top:.75rem;max-width:32rem;line-height:1.6">Hand-picked hackathons from top organizations across the globe.</p>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="filter-pill active">All</button>
+        <button class="filter-pill">Online</button>
+        <button class="filter-pill">Offline</button>
+        <button class="filter-pill">Beginner</button>
+        <button class="filter-pill">Advanced</button>
+      </div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:3rem;border:1px solid #27272a;background:#111113;padding:1.25rem;clip-path:polygon(0 0,calc(100% - 1rem) 0,100% 1rem,100% 100%,0 100%)">
+      <div style="text-align:center"><div style="font-size:1.25rem;font-weight:700;color:#f4f4f5;letter-spacing:-.03em">142</div><div class="mono" style="font-size:.5rem;color:#52525b;text-transform:uppercase;letter-spacing:.15em;margin-top:.25rem">Live Hackathons</div></div>
+      <div style="text-align:center"><div style="font-size:1.25rem;font-weight:700;color:#f4f4f5;letter-spacing:-.03em">$4.2M+</div><div class="mono" style="font-size:.5rem;color:#52525b;text-transform:uppercase;letter-spacing:.15em;margin-top:.25rem">Total Prizes</div></div>
+      <div style="text-align:center"><div style="font-size:1.25rem;font-weight:700;color:#f4f4f5;letter-spacing:-.03em">58</div><div class="mono" style="font-size:.5rem;color:#52525b;text-transform:uppercase;letter-spacing:.15em;margin-top:.25rem">Countries</div></div>
+      <div style="text-align:center"><div style="font-size:1.25rem;font-weight:700;color:#f4f4f5;letter-spacing:-.03em">1.2M+</div><div class="mono" style="font-size:.5rem;color:#52525b;text-transform:uppercase;letter-spacing:.15em;margin-top:.25rem">Teams</div></div>
+    </div>
+
+    <!-- Hackathon Cards -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem" id="hack-grid"></div>
+
+    <div style="text-align:center;margin-top:2.5rem">
+      <button class="cta-ghost cta-btn">Load More Hackathons →</button>
+    </div>
+  </div>
+</section>
+
+<!-- INTERNSHIPS -->
+<section id="internships" style="padding:6rem 0;background:#0c0c0e;border-top:1px solid #27272a">
+  <div style="max-width:84rem;margin:0 auto;padding:0 1.5rem">
+    <div class="sec-label">Phase_02 // Internships</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2rem;margin-bottom:3rem;flex-wrap:wrap">
+      <div>
+        <h2 style="font-size:clamp(2rem,4vw,3rem);font-weight:600;letter-spacing:-.04em;color:#f4f4f5;line-height:1.1">Real work. Real impact.</h2>
+        <p style="color:#a1a1aa;margin-top:.75rem;max-width:32rem;line-height:1.6">Curated internship opportunities at top startups, MNCs, and research labs. Stipend-first.</p>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="filter-pill active">All Roles</button>
+        <button class="filter-pill">Remote</button>
+        <button class="filter-pill">Research</button>
+        <button class="filter-pill">Paid Only</button>
+        <button class="filter-pill">PPO</button>
+      </div>
+    </div>
+
+    <!-- Banner -->
+    <div style="margin-bottom:2rem;border:1px solid rgba(176,38,255,.2);background:linear-gradient(90deg,rgba(176,38,255,.05),transparent);padding:1.25rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;clip-path:polygon(0 0,calc(100% - 1rem) 0,100% 1rem,100% 100%,0 100%)">
+      <div style="display:flex;align-items:center;gap:1rem">
+        <span style="font-size:1.5rem">🔥</span>
+        <div>
+          <p style="color:#f4f4f5;font-weight:600;font-size:.9375rem">Summer 2025 Internship Season is LIVE</p>
+          <p class="mono" style="color:#71717a;font-size:.625rem;margin-top:.25rem">240+ companies actively hiring interns right now</p>
+        </div>
+      </div>
+      <button class="mono" style="font-size:.625rem;text-transform:uppercase;letter-spacing:.1em;color:#b026ff;border:1px solid rgba(176,38,255,.4);padding:.5rem 1rem;background:transparent;cursor:pointer;white-space:nowrap">Browse All →</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1rem" id="intern-grid"></div>
+
+    <div style="text-align:center;margin-top:2.5rem">
+      <button class="cta-ghost cta-btn">View All 840+ Internships →</button>
+    </div>
+  </div>
+</section>
+
+<!-- SCHOLARSHIPS -->
+<section id="scholarships" style="padding:6rem 0;background:#0a0a0b;border-top:1px solid #27272a">
+  <div style="max-width:84rem;margin:0 auto;padding:0 1.5rem">
+    <div class="sec-label">Phase_03 // Scholarships</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:2rem;margin-bottom:3rem;flex-wrap:wrap">
+      <div>
+        <h2 style="font-size:clamp(2rem,4vw,3rem);font-weight:600;letter-spacing:-.04em;color:#f4f4f5;line-height:1.1">Fund your education.</h2>
+        <p style="color:#a1a1aa;margin-top:.75rem;max-width:32rem;line-height:1.6">₹500Cr+ in scholarships listed. Find your perfect match by category, country, and level.</p>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="filter-pill active">All</button>
+        <button class="filter-pill">Merit</button>
+        <button class="filter-pill">Need-Based</button>
+        <button class="filter-pill">Research</button>
+        <button class="filter-pill">Diversity</button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:3rem">
+      <div style="border:1px solid #27272a;background:#111113;padding:1rem;text-align:center;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)"><div style="font-size:1.2rem;font-weight:700;color:#f4f4f5;letter-spacing:-.03em">1,200+</div><div class="mono" style="font-size:.45rem;color:#52525b;text-transform:uppercase;letter-spacing:.15em;margin-top:.25rem">Scholarships</div></div>
+      <div style="border:1px solid #27272a;background:#111113;padding:1rem;text-align:center;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)"><div style="font-size:1.2rem;font-weight:700;color:#f4f4f5;letter-spacing:-.03em">₹500Cr+</div><div class="mono" style="font-size:.45rem;color:#52525b;text-transform:uppercase;letter-spacing:.15em;margin-top:.25rem">Total Funding</div></div>
+      <div style="border:1px solid #27272a;background:#111113;padding:1rem;text-align:center;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)"><div style="font-size:1.2rem;font-weight:700;color:#f4f4f5;letter-spacing:-.03em">92</div><div class="mono" style="font-size:.45rem;color:#52525b;text-transform:uppercase;letter-spacing:.15em;margin-top:.25rem">Countries</div></div>
+      <div style="border:1px solid #27272a;background:#111113;padding:1rem;text-align:center;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)"><div style="font-size:1.2rem;font-weight:700;color:#f4f4f5;letter-spacing:-.03em">48h</div><div class="mono" style="font-size:.45rem;color:#52525b;text-transform:uppercase;letter-spacing:.15em;margin-top:.25rem">Avg. Update</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:1.25rem" id="sch-grid"></div>
+
+    <div style="text-align:center;margin-top:2.5rem">
+      <button class="cta-ghost cta-btn">Browse All Scholarships →</button>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section style="padding:6rem 0;border-top:1px solid #27272a;background:#0c0c0e;position:relative;overflow:hidden">
+  <div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:40rem;height:20rem;background:#b026ff;opacity:.03;filter:blur(100px);pointer-events:none"></div>
+  <div style="max-width:48rem;margin:0 auto;padding:0 1.5rem;text-align:center;position:relative;z-index:10">
+    <div class="badge" style="color:#b026ff;border-color:rgba(176,38,255,.25);background:rgba(176,38,255,.05);margin-bottom:2rem;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px))">🚀 Early Access Open</div>
+    <h2 style="font-size:clamp(2.5rem,5vw,4rem);font-weight:700;letter-spacing:-.04em;color:#f4f4f5;margin-bottom:1rem">Never miss an opportunity.</h2>
+    <p style="color:#a1a1aa;font-size:1.125rem;margin-bottom:2.5rem;max-width:32rem;margin-left:auto;margin-right:auto;line-height:1.6">Get personalized alerts for hackathons, internships, and scholarships matching your profile. Zero spam.</p>
+    <div style="display:flex;gap:.75rem;max-width:32rem;margin:0 auto 1rem">
+      <input type="email" placeholder="yourname@college.edu" id="email-inp"
+        style="flex:1;background:#0a0a0b;border:1px solid #27272a;color:#f4f4f5;font-size:.9375rem;padding:1rem 1.25rem;font-family:'Geist',sans-serif;outline:none;transition:border .2s"
+        onfocus="this.style.borderColor='#b026ff'" onblur="this.style.borderColor='#27272a'">
+      <button class="cta-btn" onclick="var v=document.getElementById('email-inp').value;if(v)alert('🎉 Subscribed: '+v)">Get Alerts →</button>
+    </div>
+    <p class="mono" style="font-size:.625rem;color:#3f3f46;text-transform:uppercase;letter-spacing:.15em">Join 42,000+ students already getting alerts</p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer style="border-top:1px solid #27272a;background:#080809;padding:4rem 0 2rem">
+  <div style="max-width:84rem;margin:0 auto;padding:0 1.5rem">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:.75rem">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M2 2L12 22L22 2H16L12 10L8 2H2Z" fill="#71717a"/></svg>
+        <span style="font-weight:700;letter-spacing:-.04em;color:#71717a;text-transform:uppercase">HackXplore</span>
+      </div>
+      <div class="mono" style="font-size:.5625rem;color:#3f3f46;text-transform:uppercase;letter-spacing:.15em;display:flex;align-items:center;gap:1rem">
+        <span style="display:flex;align-items:center;gap:.5rem"><span style="width:6px;height:6px;border-radius:50%;background:#22c55e;animation:blink 2s infinite"></span>SYSTEM NOMINAL</span>
+        <span>© 2025 HackXplore</span>
+        <span>Made with ♥ in India</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// === DATA ===
+const hackathons=[
+  {title:"Smart India Hackathon 2025",org:"Ministry of Education, India",prize:"₹1,00,000",date:"Aug 26–27, 2025",loc:"Pan India",mode:"hybrid",team:"2–6 Members",diff:"Intermediate",tags:["GovTech","AI/ML","HealthTech","EdTech"],deadline:"Jul 25, 2025",reg:48000,cap:60000,logo:"🇮🇳",featured:true},
+  {title:"Google Solution Challenge",org:"Google Developers",prize:"$15,000",date:"Jan–Apr 2026",loc:"Global (Online)",mode:"online",team:"2–4 Members",diff:"Advanced",tags:["Cloud","Android","UN Goals"],deadline:"Mar 10, 2026",reg:11200,cap:0,logo:"🟡",featured:false},
+  {title:"HackMIT",org:"MIT",prize:"$50,000",date:"Sep 13–15, 2025",loc:"Cambridge, MA",mode:"offline",team:"1–4 Members",diff:"Advanced",tags:["Hardware","AI","Open Innovation"],deadline:"Aug 15, 2025",reg:600,cap:800,logo:"🏛️",featured:false},
+  {title:"MLH Global Hack Week",org:"Major League Hacking",prize:"Prizes + Swag",date:"Oct 7–13, 2025",loc:"Online",mode:"online",team:"1–5 Members",diff:"Beginner",tags:["Open Source","Web","Gaming"],deadline:"Oct 6, 2025",reg:22000,cap:0,logo:"🌐",featured:false}
+];
+
+const internships=[
+  {role:"ML Engineer Intern",company:"Google DeepMind",logo:"🧠",stipend:"$8,500/mo",dur:"3 Months",loc:"London, UK",mode:"hybrid",skills:["Python","TensorFlow","PyTorch","Research"],domain:"AI/ML Research",openings:8,deadline:"Jul 31, 2025",start:"Sep 1, 2025",perks:["PPO","Mentorship","Certificate"],verified:true,hot:true},
+  {role:"Product Design Intern",company:"Figma",logo:"🎨",stipend:"$6,200/mo",dur:"4 Months",loc:"San Francisco, CA",mode:"hybrid",skills:["Figma","Design Systems","User Research"],domain:"Product Design",openings:5,deadline:"Aug 10, 2025",start:"Sep 15, 2025",perks:["PPO","Certificate","Letter of Rec"],verified:true,hot:false},
+  {role:"Full Stack Developer Intern",company:"Razorpay",logo:"💳",stipend:"₹60,000/mo",dur:"6 Months",loc:"Bengaluru, India",mode:"onsite",skills:["React","Node.js","PostgreSQL","Redis"],domain:"Software Engineering",openings:12,deadline:"Jul 20, 2025",start:"Aug 1, 2025",perks:["PPO","Stipend","Certificate"],verified:true,hot:false},
+  {role:"Data Science Intern",company:"Zepto",logo:"⚡",stipend:"₹45,000/mo",dur:"3 Months",loc:"Remote",mode:"remote",skills:["Python","SQL","Tableau","scikit-learn"],domain:"Analytics & Data",openings:4,deadline:"Jul 15, 2025",start:"Aug 15, 2025",perks:["Certificate","Mentorship"],verified:false,hot:true}
+];
+
+const scholarships=[
+  {name:"Reliance Foundation UG Scholarship",provider:"Reliance Foundation",logo:"🏛️",amount:"₹4,00,000",note:"one-time",cat:"Merit",elig:["Indian Citizen","CGPA ≥ 8.0","Family Income < ₹15 LPA","Year 1–2 UG Student"],deadline:"Oct 5, 2025",renew:"One-time",level:"UG",country:"India",fields:["Engineering","Science","Humanities","Commerce"],total:"₹40Cr+",applicants:"50,000+",accept:"1.2%",featured:true,urgent:false},
+  {name:"Microsoft Research PhD Fellowship",provider:"Microsoft Research",logo:"🪟",amount:"$42,000",note:"per year",cat:"Research",elig:["PhD Candidate (Year 1–3)","US/Canada University","CS or EE Field"],deadline:"Sep 30, 2025",renew:"Annual",level:"PhD",country:"USA / Canada",fields:["Computer Science","Electrical Engineering","HCI"],total:"$12M+",applicants:"2,500+",accept:"3%",featured:false,urgent:false},
+  {name:"Aditya Birla Scholarship",provider:"Aditya Birla Group",logo:"🌟",amount:"₹1,80,000",note:"per year",cat:"Merit",elig:["IIT / IIM / BITS / NLSIU Student","Top 20 Merit List","Indian National"],deadline:"Aug 25, 2025",renew:"Annual",level:"UG",country:"India",fields:["Engineering","Law","Management"],total:"₹20Cr+",applicants:"18,000+",accept:"0.5%",featured:false,urgent:true},
+  {name:"Chevening Scholarship",provider:"UK Government / FCDO",logo:"🇬🇧",amount:"Full Tuition",note:"+ Living Stipend",cat:"Merit",elig:["Work Experience 2+ Years","Indian Citizen","Return to India","IELTS 6.5+"],deadline:"Nov 5, 2025",renew:"One-time",level:"PG",country:"United Kingdom",fields:["All Disciplines"],total:"$200M+",applicants:"65,000+",accept:"2.1%",featured:false,urgent:false}
+];
+
+// === RENDER FUNCTIONS ===
+
+const modeLabel={online:"Online",hybrid:"Hybrid",offline:"In-Person",remote:"Remote",onsite:"On-site"};
+const modeColor={online:"color:#4ade80;border-color:rgba(74,222,128,.3);background:rgba(74,222,128,.05)",hybrid:"color:#38bdf8;border-color:rgba(56,189,248,.3);background:rgba(56,189,248,.05)",offline:"color:#fbbf24;border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.05)",remote:"color:#4ade80;border-color:rgba(74,222,128,.3);background:rgba(74,222,128,.05)",onsite:"color:#fbbf24;border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.05)"};
+const diffColor={Beginner:"#4ade80",Intermediate:"#fbbf24",Advanced:"#f87171"};
+const catIcon={Merit:"⭐",Research:"🔬","Need-Based":"🤝",Diversity:"🌈"};
+const catColor={Merit:"color:#fbbf24;border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.05)",Research:"color:#a78bfa;border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.05)","Need-Based":"color:#38bdf8;border-color:rgba(56,189,248,.3);background:rgba(56,189,248,.05)",Diversity:"color:#f472b6;border-color:rgba(244,114,182,.3);background:rgba(244,114,182,.05)"};
+const perkColor={PPO:"color:#fbbf24;border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.05)",Certificate:"color:#38bdf8;border-color:rgba(56,189,248,.3);background:rgba(56,189,248,.05)",Mentorship:"color:#a78bfa;border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.05)","Letter of Rec":"color:#f472b6;border-color:rgba(244,114,182,.3);background:rgba(244,114,182,.05)",Stipend:"color:#4ade80;border-color:rgba(74,222,128,.3);background:rgba(74,222,128,.05)"};
+
+function tag(t,extra=''){return`<span class="mono" style="font-size:.5625rem;text-transform:uppercase;letter-spacing:.1em;color:#71717a;border:1px solid #27272a;padding:.2rem .5rem;background:rgba(39,39,42,.4);${extra}">${t}</span>`}
+function pill(t,style){return`<span class="badge" style="font-size:.5rem;${style}">${t}</span>`}
+
+function hackCard(h){
+  const pct=h.cap>0?Math.min(h.reg/h.cap*100,100):null;
+  return`<div class="hcard" style="display:flex;flex-direction:column;${h.featured?'border-color:rgba(176,38,255,.4);box-shadow:0 0 30px rgba(176,38,255,.08)':''}">
+    ${h.featured?`<div style="height:2px;background:linear-gradient(90deg,transparent,#b026ff,transparent)"></div>`:''}
+    <div style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem;flex:1">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem">
+        <div style="display:flex;align-items:center;gap:.875rem">
+          <div style="width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;background:#0a0a0b;border:1px solid #27272a;font-size:1.25rem;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));flex-shrink:0">${h.logo}</div>
+          <div><div style="color:#f4f4f5;font-weight:600;font-size:.9375rem;line-height:1.2;letter-spacing:-.02em">${h.title}</div><div class="mono" style="font-size:.5625rem;color:#71717a;margin-top:.2rem">by ${h.org}</div></div>
+        </div>
+        <span class="mono badge" style="font-size:.5rem;flex-shrink:0;${modeColor[h.mode]||modeColor.online}">${modeLabel[h.mode]||'Online'}</span>
+      </div>
+      <div style="border:1px solid #27272a;background:#0a0a0b;padding:.875rem 1rem;display:flex;justify-content:space-between;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,0 100%)">
+        <div><div class="mono" style="font-size:.5rem;color:#71717a;text-transform:uppercase;letter-spacing:.12em;margin-bottom:.25rem">Prize Pool</div><div style="font-size:1.5rem;font-weight:700;color:#b026ff;letter-spacing:-.03em;line-height:1">${h.prize}</div></div>
+        <div style="text-align:right"><div class="mono" style="font-size:.5rem;color:#71717a;text-transform:uppercase;letter-spacing:.12em;margin-bottom:.25rem">Difficulty</div><div class="mono" style="font-size:.8125rem;font-weight:600;color:${diffColor[h.diff]||'#a1a1aa'}">${h.diff}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.625rem">
+        ${[['📅','Date',h.date],['📍','Location',h.loc],['👥','Team',h.team],['⏰','Deadline',h.deadline]].map(([ic,lb,v])=>`<div style="display:flex;gap:.5rem"><span style="font-size:.875rem;flex-shrink:0;margin-top:1px">${ic}</span><div><div class="mono" style="font-size:.45rem;color:#52525b;text-transform:uppercase;letter-spacing:.12em">${lb}</div><div style="color:#d4d4d8;font-size:.8125rem;font-weight:500;line-height:1.2">${v}</div></div></div>`).join('')}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:.375rem">${h.tags.map(t=>tag(t)).join('')}</div>
+      ${pct!==null?`<div><div style="display:flex;justify-content:space-between;margin-bottom:.375rem"><span class="mono" style="font-size:.45rem;color:#52525b;text-transform:uppercase;letter-spacing:.12em">Participants</span><span class="mono" style="font-size:.45rem;color:#a1a1aa">${h.reg.toLocaleString()} / ${h.cap.toLocaleString()}</span></div><div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div></div>`:''}
+      <button onclick="alert('Registering for ${h.title.replace(/'/g,"\\'")}!')" style="width:100%;padding:.875rem;font-family:'Geist Mono',monospace;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:#0a0a0b;background:linear-gradient(90deg,#b026ff,#ff26b9);border:none;cursor:pointer;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));transition:opacity .2s;margin-top:auto" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Register Now →</button>
+    </div>
+  </div>`;
+}
+
+function internCard(i){
+  return`<div class="icard" style="display:flex;flex-direction:column;">
+    ${i.hot?`<div style="border-top:2px solid rgba(248,113,113,.6);"></div>`:''}
+    <div style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem;flex:1;position:relative">
+      ${i.hot?`<div class="mono badge" style="position:absolute;top:1rem;right:1rem;font-size:.45rem;color:#f87171;border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.05)"><span style="width:5px;height:5px;border-radius:50%;background:#f87171;display:inline-block;animation:blink 1.5s infinite;margin-right:.3rem"></span>Hot</div>`:''}
+      <div style="display:flex;align-items:flex-start;gap:1rem">
+        <div style="width:2.75rem;height:2.75rem;display:flex;align-items:center;justify-content:center;background:#0a0a0b;border:1px solid #27272a;font-size:1.25rem;flex-shrink:0;border-radius:2px">${i.logo}</div>
+        <div><div style="display:flex;align-items:center;gap:.5rem"><span style="color:#f4f4f5;font-weight:600;font-size:.9375rem;letter-spacing:-.02em">${i.role}</span>${i.verified?`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#b026ff" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`:''}</div><div style="color:#71717a;font-size:.875rem;margin-top:.2rem">${i.company}</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:.625rem">
+        <span style="width:6px;height:6px;border-radius:50%;background:${i.mode==='remote'?'#4ade80':i.mode==='hybrid'?'#38bdf8':'#fbbf24'}"></span>
+        <span class="mono" style="font-size:.5625rem;color:#a1a1aa;text-transform:uppercase;letter-spacing:.12em">${modeLabel[i.mode]}</span>
+        <span style="color:#3f3f46">·</span>
+        <span class="mono" style="font-size:.5625rem;color:#71717a;text-transform:uppercase;letter-spacing:.12em">${i.domain}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem">
+        <div style="border:1px solid rgba(176,38,255,.3);background:rgba(176,38,255,.05);padding:.75rem"><div class="mono" style="font-size:.45rem;text-transform:uppercase;letter-spacing:.12em;color:#b026ff;margin-bottom:.25rem">Stipend</div><div style="font-weight:600;font-size:.875rem;color:#b026ff">${i.stipend}</div></div>
+        <div style="border:1px solid #27272a;background:#0a0a0b;padding:.75rem"><div class="mono" style="font-size:.45rem;text-transform:uppercase;letter-spacing:.12em;color:#52525b;margin-bottom:.25rem">Duration</div><div style="font-weight:600;font-size:.875rem;color:#d4d4d8">${i.dur}</div></div>
+        <div style="border:1px solid #27272a;background:#0a0a0b;padding:.75rem"><div class="mono" style="font-size:.45rem;text-transform:uppercase;letter-spacing:.12em;color:#52525b;margin-bottom:.25rem">Openings</div><div style="font-weight:600;font-size:.875rem;color:#d4d4d8">${i.openings} Left</div></div>
+      </div>
+      <div style="display:flex;gap:1.5rem">
+        <div><span class="mono" style="font-size:.45rem;color:#52525b;text-transform:uppercase;letter-spacing:.12em;display:block;margin-bottom:.2rem">Apply By</span><span style="color:#a1a1aa;font-size:.875rem">${i.deadline}</span></div>
+        <div><span class="mono" style="font-size:.45rem;color:#52525b;text-transform:uppercase;letter-spacing:.12em;display:block;margin-bottom:.2rem">Starts</span><span style="color:#a1a1aa;font-size:.875rem">${i.start}</span></div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:.375rem">${i.skills.map(s=>tag(s)).join('')}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:.375rem">${i.perks.map(p=>pill(p,perkColor[p]||'color:#a1a1aa;border-color:#27272a')).join('')}</div>
+      <div style="display:flex;gap:.5rem;margin-top:auto">
+        <button style="flex:1;padding:.75rem;font-family:'Geist Mono',monospace;font-size:.625rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;background:#0a0a0b;border:1px solid #27272a;color:#a1a1aa;cursor:pointer;transition:all .2s" onmouseover="this.style.borderColor='rgba(176,38,255,.5)';this.style.color='#b026ff'" onmouseout="this.style.borderColor='#27272a';this.style.color='#a1a1aa'">View Details</button>
+        <button onclick="alert('Applying for ${i.role.replace(/'/g,"\\'")}!')" style="flex:1;padding:.75rem;font-family:'Geist Mono',monospace;font-size:.625rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:#0a0a0b;background:linear-gradient(90deg,#b026ff,#ff26b9);border:none;cursor:pointer;transition:opacity .2s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Apply Now →</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function schCard(s){
+  return`<div class="scard ${s.featured?'featured':''}" style="display:flex;flex-direction:column;position:relative">
+    ${s.featured?`<div style="height:2px;background:linear-gradient(90deg,#b026ff,#ff26b9,transparent)"></div>`:''}
+    ${s.urgent?`<div class="mono" style="position:absolute;top:.875rem;right:0;background:#ef4444;color:white;font-size:.45rem;text-transform:uppercase;letter-spacing:.12em;padding:.35rem .75rem;clip-path:polygon(8px 0,100% 0,100% 100%,0 100%)">⏰ Closing Soon</div>`:''}
+    <div style="padding:1.5rem;display:flex;flex-direction:column;gap:1.125rem;flex:1">
+      <div style="display:flex;align-items:flex-start;gap:1rem">
+        <div style="width:3rem;height:3rem;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(176,38,255,.1),rgba(255,38,185,.05));border:1px solid rgba(176,38,255,.2);font-size:1.375rem;flex-shrink:0;border-radius:2px">${s.logo}</div>
+        <div style="flex:1;min-width:0">
+          <div style="color:#f4f4f5;font-weight:600;font-size:.9375rem;letter-spacing:-.02em;line-height:1.2">${s.name}</div>
+          <div style="color:#71717a;font-size:.875rem;margin-top:.2rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.provider}</div>
+        </div>
+        <span class="badge" style="font-size:.45rem;flex-shrink:0;${catColor[s.cat]||catColor.Merit}">${catIcon[s.cat]||'⭐'} ${s.cat}</span>
+      </div>
+      <div style="border:1px solid #27272a;background:linear-gradient(135deg,#0a0a0b,#111115);padding:1.25rem;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%);position:relative;overflow:hidden">
+        <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(176,38,255,.05),transparent)"></div>
+        <div style="position:relative"><div class="mono" style="font-size:.5rem;color:#71717a;text-transform:uppercase;letter-spacing:.12em;margin-bottom:.375rem">Award Amount</div>
+        <div style="display:flex;align-items:baseline;gap:.625rem"><span style="font-size:1.875rem;font-weight:700;background:linear-gradient(90deg,#b026ff,#ff26b9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-.04em">${s.amount}</span><span style="color:#71717a;font-size:.875rem">${s.note}</span></div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.625rem">
+        ${[['Level',s.level,s.level==='UG'?'#4ade80':s.level==='PG'?'#38bdf8':'#a78bfa'],['Country',s.country.length>10?s.country.slice(0,10)+'…':s.country,'#d4d4d8'],['Renewable',s.renew,'#4ade80']].map(([l,v,c])=>`<div style="border:1px solid #27272a;background:#0a0a0b;padding:.625rem;text-align:center"><div class="mono" style="font-size:.4rem;color:#52525b;text-transform:uppercase;letter-spacing:.12em;margin-bottom:.25rem">${l}</div><div class="mono" style="font-size:.75rem;font-weight:600;color:${c}">${v}</div></div>`).join('')}
+      </div>
+      <div><div class="mono" style="font-size:.45rem;color:#52525b;text-transform:uppercase;letter-spacing:.12em;margin-bottom:.5rem">Eligibility</div>
+        ${s.elig.slice(0,3).map(e=>`<div style="display:flex;align-items:flex-start;gap:.5rem;margin-bottom:.375rem"><span style="width:4px;height:4px;border-radius:50%;background:#b026ff;flex-shrink:0;margin-top:.4rem"></span><span style="color:#a1a1aa;font-size:.8125rem">${e}</span></div>`).join('')}
+        ${s.elig.length>3?`<span class="mono" style="font-size:.5rem;color:#b026ff;text-transform:uppercase;letter-spacing:.1em;cursor:pointer">+${s.elig.length-3} More</span>`:''}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:.375rem">${s.fields.map(f=>tag(f,'font-size:.45rem')).join('')}</div>
+      <div style="border-top:1px solid #27272a;padding-top:1rem;display:grid;grid-template-columns:repeat(3,1fr);text-align:center;gap:.5rem">
+        ${[['Total',s.total,'#f4f4f5'],['Applicants/yr',s.applicants,'#f4f4f5'],['Accept Rate',s.accept,parseFloat(s.accept)<=5?'#f87171':'#4ade80']].map(([l,v,c])=>`<div><div style="font-weight:600;font-size:.875rem;color:${c}">${v}</div><div class="mono" style="font-size:.4rem;color:#52525b;text-transform:uppercase;letter-spacing:.1em;margin-top:.2rem">${l}</div></div>`).join('')}
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:.75rem"><span class="mono" style="font-size:.5rem;color:#52525b;text-transform:uppercase;letter-spacing:.12em">Deadline</span><span class="mono" style="font-size:.8125rem;font-weight:600;color:${s.urgent?'#f87171':'#d4d4d8'}">${s.deadline}</span></div>
+        <button onclick="alert('Applying for ${s.name.replace(/'/g,"\\'")}!')" style="width:100%;padding:.875rem;font-family:'Geist Mono',monospace;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:#0a0a0b;background:linear-gradient(90deg,#b026ff,#ff26b9);border:none;cursor:pointer;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));transition:opacity .2s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">Apply for Scholarship →</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Render
+document.getElementById('hack-grid').innerHTML=hackathons.map(hackCard).join('');
+document.getElementById('intern-grid').innerHTML=internships.map(internCard).join('');
+document.getElementById('sch-grid').innerHTML=scholarships.map(schCard).join('');
+
+// Filter pills interactivity
+document.querySelectorAll('.filter-pill').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    const group=this.closest('div');
+    group.querySelectorAll('.filter-pill').forEach(p=>p.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+
+// Ping ticker
+setInterval(()=>{const p=document.getElementById('ping');if(p)p.textContent=Math.floor(Math.random()*5)+10},2000);
+
+// Canvas particle system
+(function(){
+  const c=document.getElementById('nc');
+  if(!c)return;
+  const ctx=c.getContext('2d');
+  let P=[],mouse={x:null,y:null};
+  const resize=()=>{c.width=innerWidth;c.height=document.querySelector('#home').offsetHeight||innerHeight};
+  window.addEventListener('resize',resize);
+  window.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY});
+  resize();
+  class Particle{constructor(){this.x=Math.random()*c.width;this.y=Math.random()*c.height;this.vx=(Math.random()-.5)*.4;this.vy=(Math.random()-.5)*.4;this.r=Math.random()*1.5+.5;this.color=Math.random()>.8?'#b026ff':'#27272a'}
+  update(){if(this.x>c.width||this.x<0)this.vx*=-1;if(this.y>c.height||this.y<0)this.vy*=-1;this.x+=this.vx;this.y+=this.vy;if(mouse.x){const dx=mouse.x-this.x,dy=mouse.y-this.y;if(Math.sqrt(dx*dx+dy*dy)<150){this.x-=dx*.01;this.y-=dy*.01}}ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fillStyle=this.color;ctx.fill()}}
+  const N=(c.width*c.height)/15000;
+  for(let i=0;i<N;i++)P.push(new Particle);
+  function connect(){for(let a=0;a<P.length;a++)for(let b=a;b<P.length;b++){const d=(P[a].x-P[b].x)**2+(P[a].y-P[b].y)**2;if(d<(c.width/7)*(c.height/7)){ctx.strokeStyle=`rgba(176,38,255,${(1-d/20000)*.1})`;ctx.lineWidth=.5;ctx.beginPath();ctx.moveTo(P[a].x,P[a].y);ctx.lineTo(P[b].x,P[b].y);ctx.stroke()}}}
+  function anim(){requestAnimationFrame(anim);ctx.clearRect(0,0,c.width,c.height);P.forEach(p=>p.update());connect()}
+  anim();
+})();
+</script>
+</body>
+</html>

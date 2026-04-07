@@ -1,25 +1,434 @@
 import { useEffect, useState } from "react";
-import Navbar from "../components/Navbar";
-import Hero from "../components/Hero";
-import HackathonsSection from "../components/HackathonsSection";
-import InternshipsSection from "../components/InternshipsSection";
-import ScholarshipsSection from "../components/ScholarshipsSection";
-import Footer from "../components/Footer";
+import Navbar from "./components/Navbar";
+import Hero from "./components/Hero";
+import HackathonsSection from "./components/HackathonsSection";
+import InternshipsSection from "./components/InternshipsSection";
+import ScholarshipsSection from "./components/ScholarshipsSection";
+import Footer from "./components/Footer";
 
-/* ─── Reveal-on-Scroll hook ─────────────────────────────────── */
+/* ─── Global CSS injected directly into this file ──────────── */
+const GLOBAL_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300..700&family=Geist:wght@300..700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0b;
+    --surface: #111113;
+    --surface-2: #161618;
+    --border: #27272a;
+    --border-glow: rgba(176, 38, 255, 0.2);
+    --text: #f4f4f5;
+    --muted: #a1a1aa;
+    --dim: #71717a;
+    --faint: #3f3f46;
+    --accent: #b026ff;
+    --accent-2: #ff26b9;
+    --green: #4ade80;
+    --sky: #38bdf8;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --violet: #a78bfa;
+    --pink: #f472b6;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .mono { font-family: 'Geist Mono', monospace; }
+
+  ::selection { background: var(--accent); color: var(--bg); }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+  /* ── Clip paths ── */
+  .clip-both { clip-path: polygon(0 0, calc(100% - 1.25rem) 0, 100% 1.25rem, 100% 100%, 1.25rem 100%, 0 calc(100% - 1.25rem)); }
+  .clip-tr   { clip-path: polygon(0 0, calc(100% - 1.25rem) 0, 100% 1.25rem, 100% 100%, 0 100%); }
+  .clip-br   { clip-path: polygon(0 0, 100% 0, 100% calc(100% - 1.25rem), calc(100% - 1.25rem) 100%, 0 100%); }
+  .clip-sm   { clip-path: polygon(0 0, calc(100% - .625rem) 0, 100% .625rem, 100% 100%, .625rem 100%, 0 calc(100% - .625rem)); }
+  .clip-xs   { clip-path: polygon(0 0, calc(100% - .375rem) 0, 100% .375rem, 100% 100%, .375rem 100%, 0 calc(100% - .375rem)); }
+
+  /* ── Animations ── */
+  @keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(176,38,255,.5); }
+    50%       { box-shadow: 0 0 0 6px rgba(176,38,255,0); }
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .25; }
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(1.25rem); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slide-in-right {
+    from { opacity: 0; transform: translateX(1rem); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes grad-shift {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .fade-up   { animation: fade-up .65s cubic-bezier(.16,1,.3,1) both; }
+  .d-1 { animation-delay: .10s; }
+  .d-2 { animation-delay: .20s; }
+  .d-3 { animation-delay: .30s; }
+  .d-4 { animation-delay: .45s; }
+
+  /* ── Reveal on scroll ── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(1.5rem);
+    transition: opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1);
+  }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  /* ── Gradient text ── */
+  .grad-text {
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── CTA buttons ── */
+  .btn-solid {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    color: var(--bg);
+    font-family: 'Geist', sans-serif;
+    font-weight: 600; font-size: .875rem;
+    letter-spacing: .06em; text-transform: uppercase;
+    padding: .875rem 2rem;
+    border: none; cursor: pointer;
+    clip-path: polygon(0 0, calc(100% - .625rem) 0, 100% .625rem, 100% 100%, .625rem 100%, 0 calc(100% - .625rem));
+    transition: opacity .2s, transform .15s;
+    text-decoration: none;
+  }
+  .btn-solid:hover  { opacity: .88; }
+  .btn-solid:active { transform: scale(.98); }
+
+  .btn-ghost {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Geist Mono', monospace;
+    font-size: .75rem; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase;
+    padding: .875rem 2rem;
+    border: 1px solid var(--border); cursor: pointer;
+    transition: all .2s;
+    text-decoration: none;
+  }
+  .btn-ghost:hover { border-color: rgba(176,38,255,.5); color: var(--accent); }
+
+  /* ── Badge / pill ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: .35rem;
+    font-family: 'Geist Mono', monospace;
+    font-size: .5625rem; text-transform: uppercase; letter-spacing: .12em;
+    padding: .3rem .7rem;
+    border: 1px solid;
+  }
+
+  /* ── Section label ── */
+  .sec-label {
+    display: flex; align-items: center; gap: .75rem;
+    font-family: 'Geist Mono', monospace;
+    font-size: .6875rem; color: var(--dim);
+    text-transform: uppercase; letter-spacing: .15em;
+    margin-bottom: 1.5rem;
+  }
+  .sec-label::before {
+    content: '';
+    display: block; width: 1.5rem; height: 1px;
+    background: var(--accent);
+  }
+
+  /* ── Filter pills ── */
+  .fpill {
+    font-family: 'Geist Mono', monospace;
+    font-size: .5625rem; text-transform: uppercase; letter-spacing: .1em;
+    padding: .375rem .875rem;
+    border: 1px solid var(--border); color: var(--dim);
+    background: transparent; cursor: pointer;
+    transition: all .2s;
+  }
+  .fpill:hover, .fpill.active {
+    border-color: rgba(176,38,255,.5); color: var(--accent);
+    background: rgba(176,38,255,.05);
+  }
+
+  /* ── Progress bar ── */
+  .prog-track { height: 3px; background: var(--border); overflow: hidden; }
+  .prog-fill  { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+
+  /* ── Stat grid box ── */
+  .stat-box {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 1rem; text-align: center;
+    clip-path: polygon(0 0, calc(100% - .5rem) 0, 100% .5rem, 100% 100%, 0 100%);
+  }
+  .stat-val  { font-size: 1.25rem; font-weight: 700; color: var(--text); letter-spacing: -.03em; }
+  .stat-lbl  { font-family: 'Geist Mono', monospace; font-size: .45rem; color: var(--faint); text-transform: uppercase; letter-spacing: .15em; margin-top: .25rem; }
+
+  /* ── Tag chip ── */
+  .tag-chip {
+    font-family: 'Geist Mono', monospace;
+    font-size: .5rem; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--dim); border: 1px solid var(--border);
+    padding: .2rem .5rem; background: rgba(39,39,42,.35);
+    transition: all .2s; cursor: default;
+  }
+  .tag-chip:hover { color: var(--accent); border-color: rgba(176,38,255,.4); }
+
+  /* ── Noise overlay ── */
+  .noise-layer {
+    position: fixed; inset: 0; z-index: 100; pointer-events: none;
+    opacity: .022;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ── Dashboard grid bg ── */
+  .dash-grid {
+    background-image:
+      linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    background-size: 1.5rem 1.5rem;
+  }
+
+  /* ── Hackathon card ── */
+  .hack-card {
+    background: linear-gradient(180deg, #161618, #0f0f11);
+    border: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    clip-path: polygon(0 0, calc(100% - 1.25rem) 0, 100% 1.25rem, 100% 100%, 1.25rem 100%, 0 calc(100% - 1.25rem));
+    transition: border-color .35s, transform .35s, box-shadow .35s;
+    cursor: pointer;
+  }
+  .hack-card:hover {
+    border-color: rgba(176,38,255,.35);
+    transform: translateY(-3px);
+    box-shadow: 0 16px 48px rgba(0,0,0,.5);
+  }
+  .hack-card.featured { border-color: rgba(176,38,255,.4); box-shadow: 0 4px 30px rgba(176,38,255,.08); }
+  .hack-card.featured::before {
+    content: '';
+    display: block; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  /* ── Internship card ── */
+  .intern-card {
+    background: #111113;
+    border: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 1.25rem), calc(100% - 1.25rem) 100%, 0 100%);
+    transition: border-color .35s, box-shadow .35s;
+    cursor: pointer; position: relative;
+  }
+  .intern-card:hover { border-color: rgba(176,38,255,.3); box-shadow: 0 8px 32px rgba(0,0,0,.4); }
+  .intern-card.hot::before {
+    content: '';
+    display: block; height: 2px;
+    background: linear-gradient(90deg, rgba(248,113,113,.7), transparent);
+  }
+
+  /* ── Scholarship card ── */
+  .sch-card {
+    background: #0e0e10;
+    border: 1px solid var(--border);
+    display: flex; flex-direction: column; position: relative;
+    transition: border-color .35s, box-shadow .35s;
+    cursor: pointer;
+  }
+  .sch-card:hover { border-color: rgba(176,38,255,.25); box-shadow: 0 8px 32px rgba(0,0,0,.4); }
+  .sch-card.featured {
+    border-color: rgba(176,38,255,.4);
+    box-shadow: 0 4px 40px rgba(176,38,255,.07);
+  }
+  .sch-card.featured::before {
+    content: '';
+    display: block; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2), transparent);
+  }
+
+  /* ── Card inner padding ── */
+  .card-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; flex: 1; }
+
+  /* ── Info mini cell ── */
+  .info-cell { display: flex; gap: .5rem; }
+  .info-label { font-family: 'Geist Mono', monospace; font-size: .45rem; color: var(--faint); text-transform: uppercase; letter-spacing: .12em; }
+  .info-val   { color: #d4d4d8; font-size: .8125rem; font-weight: 500; line-height: 1.2; }
+
+  /* ── Apply / CTA buttons inside cards ── */
+  .card-btn-primary {
+    width: 100%; padding: .875rem;
+    font-family: 'Geist Mono', monospace; font-size: .75rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: var(--bg);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    border: none; cursor: pointer;
+    clip-path: polygon(0 0, calc(100% - .625rem) 0, 100% .625rem, 100% 100%, .625rem 100%, 0 calc(100% - .625rem));
+    transition: opacity .2s, transform .15s;
+  }
+  .card-btn-primary:hover  { opacity: .88; }
+  .card-btn-primary:active { transform: scale(.98); }
+
+  .card-btn-secondary {
+    flex: 1; padding: .75rem;
+    font-family: 'Geist Mono', monospace; font-size: .625rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .1em;
+    background: var(--bg); border: 1px solid var(--border); color: var(--muted);
+    cursor: pointer; transition: all .2s;
+  }
+  .card-btn-secondary:hover { border-color: rgba(176,38,255,.5); color: var(--accent); }
+
+  .card-btn-apply {
+    flex: 1; padding: .75rem;
+    font-family: 'Geist Mono', monospace; font-size: .625rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: var(--bg);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    border: none; cursor: pointer;
+    transition: opacity .2s, transform .15s;
+  }
+  .card-btn-apply:hover  { opacity: .88; }
+  .card-btn-apply:active { transform: scale(.98); }
+
+  /* ── Scholarship amount box ── */
+  .sch-amount-box {
+    border: 1px solid var(--border);
+    background: linear-gradient(135deg, var(--bg), #111115);
+    padding: 1.25rem;
+    clip-path: polygon(0 0, calc(100% - .75rem) 0, 100% .75rem, 100% 100%, 0 100%);
+    position: relative; overflow: hidden;
+  }
+  .sch-amount-box::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, rgba(176,38,255,.05), transparent);
+  }
+
+  /* ── Prize box in hackathon card ── */
+  .prize-box {
+    border: 1px solid var(--border); background: var(--bg);
+    padding: .875rem 1rem;
+    display: flex; justify-content: space-between;
+    clip-path: polygon(0 0, calc(100% - .5rem) 0, 100% .5rem, 100% 100%, 0 100%);
+  }
+
+  /* ── Stats trio in intern card ── */
+  .stipend-cell {
+    border: 1px solid rgba(176,38,255,.3);
+    background: rgba(176,38,255,.05);
+    padding: .75rem;
+  }
+  .meta-cell {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    padding: .75rem;
+  }
+  .meta-lbl { font-family: 'Geist Mono', monospace; font-size: .45rem; text-transform: uppercase; letter-spacing: .12em; margin-bottom: .25rem; }
+  .meta-val  { font-weight: 600; font-size: .875rem; line-height: 1.2; }
+
+  /* ── Perk / category pills ── */
+  .perk-pill {
+    font-family: 'Geist Mono', monospace; font-size: .45rem;
+    text-transform: uppercase; letter-spacing: .12em;
+    padding: .25rem .625rem; border: 1px solid;
+  }
+
+  /* ── Scholarship meta grid cell ── */
+  .sch-meta {
+    border: 1px solid var(--border); background: var(--bg);
+    padding: .625rem; text-align: center;
+  }
+  .sch-meta-lbl { font-family: 'Geist Mono', monospace; font-size: .4rem; color: var(--faint); text-transform: uppercase; letter-spacing: .12em; margin-bottom: .25rem; }
+  .sch-meta-val { font-family: 'Geist Mono', monospace; font-size: .75rem; font-weight: 600; }
+
+  /* ── Eligibility dot ── */
+  .elig-dot {
+    width: 4px; height: 4px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0; margin-top: .45rem;
+  }
+
+  /* ── Urgent ribbon ── */
+  .urgent-ribbon {
+    position: absolute; top: .875rem; right: 0;
+    background: #ef4444; color: #fff;
+    font-family: 'Geist Mono', monospace;
+    font-size: .45rem; text-transform: uppercase; letter-spacing: .12em;
+    padding: .35rem .875rem;
+    clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%);
+    z-index: 10;
+  }
+
+  /* ── Hot badge ── */
+  .hot-badge {
+    position: absolute; top: 1rem; right: 1rem;
+    display: flex; align-items: center; gap: .375rem;
+    font-family: 'Geist Mono', monospace; font-size: .45rem;
+    text-transform: uppercase; letter-spacing: .12em;
+    color: var(--red); border: 1px solid rgba(248,113,113,.3);
+    background: rgba(248,113,113,.05); padding: .3rem .625rem;
+    z-index: 10;
+  }
+  .hot-blink { width: 5px; height: 5px; border-radius: 50%; background: var(--red); animation: blink 1.5s infinite; }
+
+  /* ── Verified tick ── */
+  .verified-icon { flex-shrink: 0; }
+
+  /* ── Nav links ── */
+  .nav-link {
+    position: relative; color: var(--muted); text-decoration: none;
+    font-size: .875rem; font-weight: 500;
+    transition: color .2s;
+  }
+  .nav-link::after {
+    content: '';
+    position: absolute; bottom: -.25rem; left: 0; width: 100%; height: 1px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transform: scaleX(0); transform-origin: right;
+    transition: transform .3s cubic-bezier(.16,1,.3,1);
+  }
+  .nav-link:hover { color: var(--text); }
+  .nav-link:hover::after { transform: scaleX(1); transform-origin: left; }
+
+  /* ── Mode dot colors ── */
+  .dot-green  { background: var(--green); }
+  .dot-sky    { background: var(--sky); }
+  .dot-amber  { background: var(--amber); }
+`;
+
+/* ─── Scroll reveal hook ─────────────────────────────────────── */
 function useReveal() {
   useEffect(() => {
     const els = document.querySelectorAll(".reveal");
-    const observer = new IntersectionObserver(
-      (entries) => entries.forEach((e) => e.isIntersecting && e.target.classList.add("active")),
-      { threshold: 0.12 }
+    const obs = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((e) => e.isIntersecting && e.target.classList.add("visible")),
+      { threshold: 0.1 }
     );
-    els.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+    els.forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
   }, []);
 }
 
-/* ─── Dashboard Live Feed ─────────────────────────────────────── */
+/* ─── Live dashboard feed ────────────────────────────────────── */
 function DashFeed() {
   const LOGS = [
     "New hackathon listed: HackMIT 2025 — $50,000 prize",
@@ -28,62 +437,99 @@ function DashFeed() {
     "Alert: Smart India Hackathon is 70% full",
     "New scholarship: PM YASASVI Fellowship",
     "Razorpay hiring 12 SDE interns this cycle",
+    "Infosys Springboard scholarship applications open",
   ];
-  const [feed, setFeed] = useState(LOGS.slice(0, 5));
+  const [feed, setFeed] = useState(LOGS.slice(0, 5).map((l, i) => ({ id: i, text: l })));
 
   useEffect(() => {
-    const id = setInterval(() => {
+    let id = 0;
+    const interval = setInterval(() => {
       const msg = LOGS[Math.floor(Math.random() * LOGS.length)];
-      const time = new Date().toLocaleTimeString("en-US", { hour12: false });
-      setFeed((prev) => [`[${time}] ${msg}`, ...prev.slice(0, 4)]);
+      const ts = new Date().toLocaleTimeString("en-US", { hour12: false });
+      setFeed((prev) => [{ id: ++id, text: `[${ts}] ${msg}` }, ...prev.slice(0, 4)]);
     }, 3500);
-    return () => clearInterval(id);
+    return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="flex-1 p-4 font-mono text-[0.6875rem] space-y-3 overflow-hidden">
-      {feed.map((line, i) => (
-        <div key={i} className={`transition-opacity duration-500 ${i === 0 ? "text-[#b026ff]" : "text-zinc-500"} truncate`}>
-          {line}
+    <div style={{ flex: 1, padding: "1rem", display: "flex", flexDirection: "column", gap: ".75rem", overflow: "hidden" }}>
+      {feed.map((item, i) => (
+        <div
+          key={item.id}
+          className="mono"
+          style={{
+            fontSize: ".6875rem",
+            color: i === 0 ? "var(--accent)" : "var(--dim)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            transition: "color .4s",
+          }}
+        >
+          {item.text}
         </div>
       ))}
     </div>
   );
 }
 
-/* ─── Stats / Metrics Section ────────────────────────────────── */
+/* ─── Metrics dashboard section ─────────────────────────────── */
 function MetricsSection() {
+  const bars = [30, 45, 25, 60, 55, 80, 40, 70, 65, 35, 95, 50];
+
   return (
-    <section className="border-t border-zinc-800 bg-[#0a0a0b] overflow-hidden" id="metrics">
-      <div className="max-w-7xl mx-auto px-6 py-10 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <span className="w-6 h-px bg-zinc-700" />
-          <span className="font-mono text-[0.6875rem] text-zinc-500 uppercase tracking-[0.15em]">
-            Phase_00 // Live Intelligence Dashboard
-          </span>
-        </div>
-        <div className="font-mono text-[0.625rem] text-zinc-700">SYS_UI // 60FPS</div>
+    <section style={{ borderTop: "1px solid var(--border)", background: "var(--bg)", overflow: "hidden" }}>
+      <div
+        style={{
+          maxWidth: "84rem", margin: "0 auto", padding: "0 1.5rem",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          height: "4.5rem",
+        }}
+      >
+        <div className="sec-label" style={{ margin: 0 }}>Phase_00 // Live Intelligence Dashboard</div>
+        <span className="mono" style={{ fontSize: ".625rem", color: "var(--faint)" }}>SYS_UI // 60FPS</span>
       </div>
 
-      <div className="reveal max-w-[95vw] mx-auto border border-b-0 border-zinc-800 bg-[#111113] rounded-t-xl overflow-hidden shadow-[0_-20px_50px_rgba(176,38,255,0.03)]">
-        {/* Window Chrome */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-[#0a0a0b]">
-          <div className="flex gap-2">
-            {["bg-zinc-700", "bg-zinc-700", "bg-zinc-700"].map((c, i) => (
-              <div key={i} className={`w-2.5 h-2.5 rounded-full ${c}`} />
-            ))}
+      <div
+        className="reveal"
+        style={{
+          maxWidth: "95vw", margin: "0 auto",
+          border: "1px solid var(--border)", borderBottom: "none",
+          background: "var(--surface)", borderRadius: "12px 12px 0 0",
+          overflow: "hidden",
+          boxShadow: "0 -20px 50px rgba(176,38,255,.03)",
+        }}
+      >
+        {/* Window chrome */}
+        <div
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: ".75rem 1rem", borderBottom: "1px solid var(--border)",
+            background: "var(--bg)",
+          }}
+        >
+          <div style={{ display: "flex", gap: ".5rem" }}>
+            {[0, 1, 2].map((i) => <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--border)" }} />)}
           </div>
-          <div className="font-mono text-[0.6875rem] text-zinc-400 flex items-center gap-2 bg-[#111113] px-3 py-1 rounded-sm border border-zinc-800">
+          <div
+            className="mono"
+            style={{
+              fontSize: ".6875rem", color: "var(--muted)",
+              display: "flex", alignItems: "center", gap: ".5rem",
+              background: "var(--surface)", padding: ".25rem .875rem",
+              borderRadius: 4, border: "1px solid var(--border)",
+            }}
+          >
             🔒 HackXplore.core / command-center
           </div>
-          <div className="w-12" />
+          <div style={{ width: 48 }} />
         </div>
 
-        {/* Dashboard Body */}
-        <div className="grid grid-cols-1 lg:grid-cols-[14rem_1fr_20rem] h-[35rem]">
+        {/* Dashboard body */}
+        <div style={{ display: "grid", gridTemplateColumns: "14rem 1fr 20rem", height: "35rem" }}>
           {/* Sidebar */}
-          <div className="hidden lg:block border-r border-zinc-800 bg-[#0a0a0b] p-4 font-mono text-[0.75rem]">
-            <div className="text-zinc-100 mb-6 flex items-center gap-2">📊 Overview</div>
+          <div style={{ borderRight: "1px solid var(--border)", background: "var(--bg)", padding: "1rem" }}>
+            <div className="mono" style={{ fontSize: ".75rem", color: "var(--text)", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: ".5rem" }}>📊 Overview</div>
             {[
               { icon: "🏆", label: "Hackathons", active: false },
               { icon: "💼", label: "Internships", active: true },
@@ -92,75 +538,80 @@ function MetricsSection() {
             ].map(({ icon, label, active }) => (
               <div
                 key={label}
-                className={`flex items-center gap-2 mb-2 px-2 py-1.5 rounded cursor-pointer ${
-                  active
-                    ? "text-[#b026ff] bg-[#b026ff]/10"
-                    : "text-zinc-500 hover:text-zinc-200"
-                }`}
+                className="mono"
+                style={{
+                  fontSize: ".75rem", display: "flex", alignItems: "center", gap: ".625rem",
+                  padding: ".5rem .75rem", marginBottom: ".375rem", borderRadius: 4, cursor: "pointer",
+                  color: active ? "var(--accent)" : "var(--dim)",
+                  background: active ? "rgba(176,38,255,.1)" : "transparent",
+                  transition: "all .2s",
+                }}
               >
                 {icon} {label}
               </div>
             ))}
           </div>
 
-          {/* Chart Area */}
-          <div className="p-6 bg-[#0a0a0b] relative"
-            style={{
-              backgroundImage: "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)",
-              backgroundSize: "1.5rem 1.5rem",
-            }}>
-            <div className="flex justify-between items-start mb-8">
+          {/* Chart area */}
+          <div className="dash-grid" style={{ padding: "1.5rem", background: "var(--bg)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem" }}>
               <div>
-                <h3 className="text-lg font-semibold text-zinc-100 tracking-tight">Platform Activity</h3>
-                <p className="text-[0.75rem] text-zinc-500 font-mono mt-1">Applications submitted — real time</p>
+                <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--text)", letterSpacing: "-.02em" }}>Platform Activity</h3>
+                <p className="mono" style={{ fontSize: ".6875rem", color: "var(--dim)", marginTop: ".25rem" }}>Applications submitted — real time</p>
               </div>
-              <div className="flex gap-2">
+              <div style={{ display: "flex", gap: ".375rem" }}>
                 {["1H", "24H", "7D"].map((t, i) => (
-                  <span key={t}
-                    className={`px-2 py-1 font-mono text-[0.625rem] rounded ${
-                      i === 0 ? "bg-zinc-800 text-zinc-100" : "border border-zinc-800 text-zinc-500"
-                    }`}>
-                    {t}
-                  </span>
+                  <span key={t} className="mono" style={{
+                    fontSize: ".625rem", padding: ".25rem .625rem", borderRadius: 4,
+                    background: i === 0 ? "var(--border)" : "transparent",
+                    border: i === 0 ? "none" : "1px solid var(--border)",
+                    color: i === 0 ? "var(--text)" : "var(--dim)", cursor: "pointer",
+                  }}>{t}</span>
                 ))}
               </div>
             </div>
 
-            {/* Bar Chart */}
-            <div className="h-48 border-b border-l border-zinc-800 mb-6 flex items-end justify-between px-2 pb-1 gap-1">
-              {[30, 45, 25, 60, 55, 80, 40, 70, 65, 35, 95, 50].map((h, i) => (
+            {/* Bar chart */}
+            <div
+              style={{
+                height: "12rem", borderBottom: "1px solid var(--border)", borderLeft: "1px solid var(--border)",
+                display: "flex", alignItems: "flex-end", justifyContent: "space-between",
+                padding: "0 .5rem .25rem", marginBottom: "1.5rem", gap: ".25rem",
+              }}
+            >
+              {bars.map((h, i) => (
                 <div
                   key={i}
-                  className={`flex-1 rounded-t-sm transition-colors ${
-                    i === 10
-                      ? "bg-[#b026ff] shadow-[0_0_15px_rgba(176,38,255,0.3)]"
-                      : i === 5
-                      ? "bg-[#b026ff]/60"
-                      : "bg-zinc-800 hover:bg-[#b026ff]/40"
-                  }`}
-                  style={{ height: `${h}%` }}
+                  style={{
+                    flex: 1, borderRadius: "2px 2px 0 0", height: `${h}%`,
+                    background: i === 10 ? "var(--accent)" : i === 5 ? "rgba(176,38,255,.6)" : "var(--border)",
+                    boxShadow: i === 10 ? "0 0 15px rgba(176,38,255,.3)" : "none",
+                    transition: "background .2s", cursor: "pointer",
+                  }}
+                  onMouseOver={(e) => { if (i !== 10 && i !== 5) e.currentTarget.style.background = "rgba(176,38,255,.4)"; }}
+                  onMouseOut={(e) => { if (i !== 10 && i !== 5) e.currentTarget.style.background = "var(--border)"; }}
                 />
               ))}
             </div>
 
-            {/* Mini Stats */}
-            <div className="grid grid-cols-3 gap-4">
+            {/* Mini stats */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1rem" }}>
               {[
                 { label: "Applications Today", value: "8,412" },
                 { label: "New Listings", value: "142" },
                 { label: "Avg. Response Time", value: "0.3s", accent: true },
               ].map(({ label, value, accent }) => (
-                <div key={label} className="bg-[#111113] border border-zinc-800 p-3 rounded-md">
-                  <div className="font-mono text-[0.625rem] text-zinc-500 mb-1">{label}</div>
-                  <div className={`text-lg font-medium ${accent ? "text-[#b026ff]" : "text-zinc-100"}`}>{value}</div>
+                <div key={label} style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: ".75rem", borderRadius: 6 }}>
+                  <div className="mono" style={{ fontSize: ".5625rem", color: "var(--dim)", marginBottom: ".375rem" }}>{label}</div>
+                  <div style={{ fontSize: "1.125rem", fontWeight: 600, color: accent ? "var(--accent)" : "var(--text)" }}>{value}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Live Feed */}
-          <div className="hidden lg:flex flex-col border-l border-zinc-800 bg-[#0a0a0b]">
-            <div className="p-4 border-b border-zinc-800 font-mono text-[0.75rem] text-zinc-100">
+          {/* Live feed */}
+          <div style={{ borderLeft: "1px solid var(--border)", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
+            <div className="mono" style={{ padding: "1rem", borderBottom: "1px solid var(--border)", fontSize: ".75rem", color: "var(--text)" }}>
               🟢 Live Platform Feed
             </div>
             <DashFeed />
@@ -171,43 +622,58 @@ function MetricsSection() {
   );
 }
 
-/* ─── CTA Section ─────────────────────────────────────────────── */
+/* ─── CTA Section ────────────────────────────────────────────── */
 function CTASection() {
   const [email, setEmail] = useState("");
 
   return (
-    <section id="apply" className="py-24 border-t border-zinc-800 bg-[#0c0c0e] relative overflow-hidden">
-      <div className="absolute left-1/2 bottom-0 -translate-x-1/2 w-[40rem] h-[20rem] bg-[#b026ff] opacity-[0.03] blur-[100px] pointer-events-none" />
-      <div className="max-w-3xl mx-auto px-6 text-center relative z-10">
-        <div className="inline-flex items-center gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.1em] text-[#b026ff] px-3 py-1.5 mb-8 border border-[#b026ff]/30 bg-[#b026ff]/5"
-          style={{ clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))" }}>
+    <section
+      id="apply"
+      style={{ padding: "6rem 0", borderTop: "1px solid var(--border)", background: "#0c0c0e", position: "relative", overflow: "hidden" }}
+    >
+      <div style={{
+        position: "absolute", left: "50%", bottom: 0, transform: "translateX(-50%)",
+        width: "40rem", height: "20rem", background: "var(--accent)",
+        opacity: .03, filter: "blur(100px)", pointerEvents: "none",
+      }} />
+
+      <div style={{ maxWidth: "48rem", margin: "0 auto", padding: "0 1.5rem", textAlign: "center", position: "relative", zIndex: 10 }}>
+        <div className="badge" style={{ color: "var(--accent)", borderColor: "rgba(176,38,255,.25)", background: "rgba(176,38,255,.05)", marginBottom: "2rem", clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))" }}>
           🚀 Early Access Open
         </div>
 
-        <h2 className="text-[clamp(2.5rem,5vw,4rem)] font-bold text-zinc-100 mb-4 leading-tight" style={{ letterSpacing: "-0.04em" }}>
+        <h2 style={{ fontSize: "clamp(2.5rem,5vw,4rem)", fontWeight: 700, letterSpacing: "-.04em", color: "var(--text)", marginBottom: "1rem", lineHeight: 1.1 }}>
           Never miss an opportunity.
         </h2>
-        <p className="text-zinc-400 text-lg mb-10 max-w-xl mx-auto">
+
+        <p style={{ color: "var(--muted)", fontSize: "1.125rem", marginBottom: "2.5rem", maxWidth: "32rem", margin: "0 auto 2.5rem", lineHeight: 1.6 }}>
           Get personalized alerts for hackathons, internships, and scholarships matching your profile. Weekly digest. Zero spam.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-3 max-w-xl mx-auto">
+        <div style={{ display: "flex", gap: ".75rem", maxWidth: "32rem", margin: "0 auto 1rem" }}>
           <input
             type="email"
             placeholder="yourname@college.edu"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="flex-1 bg-[#0a0a0b] border border-zinc-800 text-zinc-100 text-base px-5 py-4 focus:border-[#b026ff] focus:outline-none transition-colors placeholder:text-zinc-700"
+            style={{
+              flex: 1, background: "var(--bg)", border: "1px solid var(--border)",
+              color: "var(--text)", fontSize: ".9375rem", padding: "1rem 1.25rem",
+              fontFamily: "'Geist', sans-serif", outline: "none",
+              transition: "border-color .2s",
+            }}
+            onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+            onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
           />
           <button
-            onClick={() => email && alert(`🎉 You're on the list: ${email}`)}
-            className="px-8 py-4 text-[0.9375rem] font-semibold text-[#0a0a0b] bg-gradient-to-r from-[#b026ff] to-[#ff26b9] hover:opacity-90 transition-opacity uppercase tracking-wider whitespace-nowrap"
-            style={{ clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))" }}
+            className="btn-solid"
+            onClick={() => email && alert(`🎉 Subscribed: ${email}`)}
           >
             Get Alerts →
           </button>
         </div>
-        <p className="font-mono text-[0.625rem] text-zinc-700 mt-4 uppercase tracking-widest">
+
+        <p className="mono" style={{ fontSize: ".5625rem", color: "var(--faint)", textTransform: "uppercase", letterSpacing: ".15em" }}>
           Join 42,000+ students already getting alerts
         </p>
       </div>
@@ -220,58 +686,27 @@ export default function App() {
   useReveal();
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 overflow-x-hidden">
-      {/* Noise overlay */}
-      <div className="fixed inset-0 z-50 pointer-events-none opacity-[0.02]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-        }}
-      />
+    <>
+      {/* Inject all global styles */}
+      <style>{GLOBAL_CSS}</style>
 
-      <Navbar />
+      <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", overflowX: "hidden" }}>
+        {/* Film-grain noise overlay */}
+        <div className="noise-layer" />
 
-      <main className="pt-[6rem]">
-        <Hero />
-        <MetricsSection />
-        <HackathonsSection />
-        <InternshipsSection />
-        <ScholarshipsSection />
-        <CTASection />
-      </main>
+        <Navbar />
 
-      <Footer />
+        <main style={{ paddingTop: "6rem" }}>
+          <Hero />
+          <MetricsSection />
+          <HackathonsSection />
+          <InternshipsSection />
+          <ScholarshipsSection />
+          <CTASection />
+        </main>
 
-      {/* Global Styles */}
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300..700&family=Geist:wght@300..700&display=swap');
-        
-        * { box-sizing: border-box; }
-        
-        body {
-          font-family: 'Geist', -apple-system, sans-serif;
-          background-color: #0a0a0b;
-          -webkit-font-smoothing: antialiased;
-        }
-        
-        .font-mono { font-family: 'Geist Mono', monospace; }
-
-        ::selection { background: #b026ff; color: #0a0a0b; }
-
-        .reveal {
-          opacity: 0;
-          transform: translateY(1.5rem);
-          transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1);
-        }
-        .reveal.active {
-          opacity: 1;
-          transform: translateY(0);
-        }
-
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: #0a0a0b; }
-        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 2px; }
-        ::-webkit-scrollbar-thumb:hover { background: #b026ff; }
-      `}</style>
-    </div>
+        <Footer />
+      </div>
+    </>
   );
 }

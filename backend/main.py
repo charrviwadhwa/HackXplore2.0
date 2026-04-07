@@ -9,7 +9,7 @@ Install once:
   python -m playwright install chromium
 """
 
-import asyncio, json, csv
+import asyncio, json, csv, re
 from pathlib import Path
 from datetime import datetime
 from playwright.async_api import async_playwright, TimeoutError as PWTimeout
@@ -24,6 +24,36 @@ DETAIL_WAIT_MS = 2500
 FIELDS = ["source","name","url","dates","location","status",
           "prize","participants","themes","image","raw"]
 
+
+def normalize_hackathon_record(record: dict) -> dict:
+    prize_text = str(record.get("prize", "") or "")
+    participants_text = str(record.get("participants", "") or "")
+    raw_text = str(record.get("raw", "") or "")
+    combined = " | ".join([prize_text, participants_text, raw_text])
+
+    p_match = re.search(r"(?i)\b(\d[\d,]*)\s*(participants?|registrations?|teams?)\b", combined)
+    if p_match:
+        record["participants"] = f"{p_match.group(1)} {p_match.group(2)}"
+    else:
+        record["participants"] = participants_text.strip()
+
+    money_match = re.search(
+        r"(?i)((?:₹|â‚¹|INR|Rs\.?|\$|USD)\s*[\d,]+(?:\s*(?:-|to)\s*(?:₹|â‚¹|INR|Rs\.?|\$|USD)?\s*[\d,]+)?(?:\s*\+)?(?:\s*in\s+prizes?)?)",
+        combined,
+    )
+    non_cash_match = re.search(r"(?i)\b\d+\s+non-?cash\s+prizes?\b", combined)
+
+    if money_match:
+        record["prize"] = money_match.group(1).strip()
+    elif non_cash_match:
+        record["prize"] = non_cash_match.group(0).strip()
+    else:
+        cleaned = re.sub(r"(?i)\b\d[\d,]*\s*(participants?|registrations?|teams?)\b", "", prize_text)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip(" |,-")
+        record["prize"] = cleaned
+
+    return record
+
 def log(msg):
     line = f"[{datetime.now().strftime('%H:%M:%S')}] {msg}"
     try:
@@ -33,12 +63,13 @@ def log(msg):
         print(safe_line, flush=True)
 
 def save(records, csv_path, json_path, label=""):
+    normalized = [normalize_hackathon_record(dict(r)) for r in records]
     with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
         w.writeheader()
-        w.writerows(records)
-    json_path.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
-    log(f"  💾  {len(records)} records saved {label}")
+        w.writerows(normalized)
+    json_path.write_text(json.dumps(normalized, ensure_ascii=False, indent=2), encoding="utf-8")
+    log(f"  💾  {len(normalized)} records saved {label}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

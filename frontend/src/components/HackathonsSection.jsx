@@ -72,15 +72,26 @@ const inferOrganizer = (url = "") => {
   return "Unknown";
 };
 
-export default function HackathonsSection() {
+export default function HackathonsSection({
+  maxItems = 10,
+  showViewMore = true,
+  onViewMore,
+  isFullPage = false,
+  onBack,
+}) {
   const [activeFilter, setActiveFilter] = useState("All");
   const [hackathons, setHackathons] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [localFullPage, setLocalFullPage] = useState(false);
 
   useEffect(() => {
     let alive = true;
 
-    fetch("/hackathons.json")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Failed to load hackathons.json"))))
+    const jsonUrl = `${import.meta.env.BASE_URL}hackathons.json`;
+
+    fetch(jsonUrl)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Failed to load ${jsonUrl} (${r.status})`))))
       .then((rows) => {
         if (!alive || !Array.isArray(rows)) return;
 
@@ -111,9 +122,18 @@ export default function HackathonsSection() {
         });
 
         setHackathons(mapped);
+        setLoadError("");
       })
-      .catch(() => {
-        if (alive) setHackathons([]);
+      .catch((err) => {
+        if (alive) {
+          setHackathons([]);
+          setLoadError(err?.message || "Unable to load hackathons data");
+        }
+      })
+      .finally(() => {
+        if (alive) {
+          setLoading(false);
+        }
       });
 
     return () => {
@@ -142,19 +162,52 @@ export default function HackathonsSection() {
     () => filtered.reduce((acc, h) => acc + (Number(h.registered) || 0), 0),
     [filtered]
   );
+  const fullMode = isFullPage || localFullPage;
+  const visibleHackathons = useMemo(
+    () => (fullMode ? filtered : (typeof maxItems === "number" ? filtered.slice(0, maxItems) : filtered)),
+    [filtered, maxItems, fullMode]
+  );
+  const hasMore = !fullMode && typeof maxItems === "number" && filtered.length > maxItems;
+
+  const handleViewMore = () => {
+    if (onViewMore) {
+      onViewMore();
+      return;
+    }
+    setLocalFullPage(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+      return;
+    }
+    setLocalFullPage(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <>
       <style>{SECTION_CSS}</style>
 
-      <section id="hackathons" className="hack-section">
+      <section id={fullMode ? "all-hackathons" : "hackathons"} className="hack-section">
         <div className="hack-section-inner">
           <div className="sec-label">Phase_01 // Hackathons</div>
 
           <div className="hack-header">
             <div>
-              <h2 className="hack-h2">Compete. Build. Win.</h2>
-              <p className="hack-sub">Live hackathons from your scraped dataset. Filter by mode and level.</p>
+              {fullMode && (
+                <button className="btn-ghost" style={{ marginBottom: ".85rem" }} onClick={handleBack}>
+                  Back to Home
+                </button>
+              )}
+              <h2 className="hack-h2">{fullMode ? "All Hackathons" : "Compete. Build. Win."}</h2>
+              <p className="hack-sub">
+                {fullMode
+                  ? "Browse the complete hackathon dataset."
+                  : "Live hackathons from your scraped dataset. Filter by mode and level."}
+              </p>
             </div>
             <div className="hack-filters">
               {FILTERS.map((f) => (
@@ -184,7 +237,25 @@ export default function HackathonsSection() {
           </div>
 
           <div className="hack-grid">
-            {filtered.map((h) => (
+            {loading && (
+              <div className="mono" style={{ color: "var(--muted)", fontSize: ".8rem" }}>
+                Loading hackathons...
+              </div>
+            )}
+
+            {!loading && loadError && (
+              <div className="mono" style={{ color: "var(--red)", fontSize: ".8rem" }}>
+                {loadError}
+              </div>
+            )}
+
+            {!loading && !loadError && filtered.length === 0 && (
+              <div className="mono" style={{ color: "var(--muted)", fontSize: ".8rem" }}>
+                No hackathons found for the selected filter.
+              </div>
+            )}
+
+            {!loading && !loadError && visibleHackathons.map((h) => (
               <HackathonCard
                 key={h.id}
                 {...h}
@@ -194,7 +265,13 @@ export default function HackathonsSection() {
           </div>
 
           <div className="hack-load-more">
-            <button className="btn-ghost">Loaded from JSON dataset</button>
+            {showViewMore && hasMore ? (
+              <button className="btn-ghost" onClick={handleViewMore}>
+                View More Hackathons {'->'}
+              </button>
+            ) : (
+              <button className="btn-ghost">Loaded from JSON dataset</button>
+            )}
           </div>
         </div>
       </section>

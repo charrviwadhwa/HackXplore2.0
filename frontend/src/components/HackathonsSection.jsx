@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import HackathonCard from "./HackathonCard";
 
-/* ── Section-specific CSS ────────────────────────────────────── */
 const SECTION_CSS = `
   .hack-section {
     padding: 6rem 0;
@@ -41,88 +40,108 @@ const SECTION_CSS = `
   }
 `;
 
-/* ── Sample data ─────────────────────────────────────────────── */
-const HACKATHONS = [
-  {
-    title: "Smart India Hackathon 2025",
-    organizer: "Ministry of Education, India",
-    prize: "₹1,00,000",
-    date: "Aug 26–27, 2025",
-    location: "Pan India",
-    mode: "hybrid",
-    teamSize: "2–6 Members",
-    difficulty: "Intermediate",
-    tags: ["GovTech", "AI/ML", "HealthTech", "EdTech"],
-    deadline: "Jul 25, 2025",
-    registered: 48000,
-    capacity: 60000,
-    logo: "🇮🇳",
-    featured: true,
-  },
-  {
-    title: "Google Solution Challenge",
-    organizer: "Google Developers",
-    prize: "$15,000",
-    date: "Jan–Apr 2026",
-    location: "Global (Online)",
-    mode: "online",
-    teamSize: "2–4 Members",
-    difficulty: "Advanced",
-    tags: ["Cloud", "Android", "UN Goals"],
-    deadline: "Mar 10, 2026",
-    registered: 11200,
-    capacity: 0,
-    logo: "🟡",
-    featured: false,
-  },
-  {
-    title: "HackMIT",
-    organizer: "Massachusetts Institute of Technology",
-    prize: "$50,000",
-    date: "Sep 13–15, 2025",
-    location: "Cambridge, MA",
-    mode: "offline",
-    teamSize: "1–4 Members",
-    difficulty: "Advanced",
-    tags: ["Hardware", "AI", "Open Innovation"],
-    deadline: "Aug 15, 2025",
-    registered: 600,
-    capacity: 800,
-    logo: "🏛️",
-    featured: false,
-  },
-  {
-    title: "MLH Global Hack Week",
-    organizer: "Major League Hacking",
-    prize: "Prizes + Swag",
-    date: "Oct 7–13, 2025",
-    location: "Online",
-    mode: "online",
-    teamSize: "1–5 Members",
-    difficulty: "Beginner",
-    tags: ["Open Source", "Web", "Gaming"],
-    deadline: "Oct 6, 2025",
-    registered: 22000,
-    capacity: 0,
-    logo: "🌐",
-    featured: false,
-  },
-];
-
 const FILTERS = ["All", "Online", "Offline", "Beginner", "Advanced"];
 
-/* ── Component ───────────────────────────────────────────────── */
+const parseParticipants = (value = "") => {
+  const match = String(value).replace(/,/g, "").match(/(\d+)\s*participants?/i);
+  return match ? Number(match[1]) : 0;
+};
+
+const parseMode = (location = "", raw = "") => {
+  const text = `${location} ${raw}`.toLowerCase();
+  if (text.includes("hybrid")) return "hybrid";
+  if (text.includes("online") || text.includes("virtual")) return "online";
+  return "offline";
+};
+
+const mapDifficulty = (themes = "", raw = "") => {
+  const text = `${themes} ${raw}`.toLowerCase();
+  if (text.includes("beginner")) return "Beginner";
+  if (text.includes("advanced")) return "Advanced";
+  return "Intermediate";
+};
+
+const inferOrganizer = (url = "") => {
+  try {
+    const host = new URL(url).hostname;
+    if (host.includes("devpost")) return "Devpost";
+    if (host.includes("devfolio")) return "Devfolio";
+  } catch {
+    return "Unknown";
+  }
+  return "Unknown";
+};
+
 export default function HackathonsSection() {
   const [activeFilter, setActiveFilter] = useState("All");
+  const [hackathons, setHackathons] = useState([]);
 
-  const filtered = HACKATHONS.filter((h) => {
+  useEffect(() => {
+    let alive = true;
+
+    fetch("/hackathons.json")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Failed to load hackathons.json"))))
+      .then((rows) => {
+        if (!alive || !Array.isArray(rows)) return;
+
+        const mapped = rows.map((row, idx) => {
+          const registered = parseParticipants(row.participants);
+          return {
+            id: row.url || `${row.name}-${idx}`,
+            title: row.name || "Untitled Hackathon",
+            organizer: inferOrganizer(row.url),
+            prize: row.prize || "TBA",
+            date: row.dates || "TBA",
+            location: row.location || "Online",
+            mode: parseMode(row.location, row.raw),
+            teamSize: "1-4 Members",
+            difficulty: mapDifficulty(row.themes, row.raw),
+            tags: String(row.themes || "")
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)
+              .slice(0, 5),
+            deadline: row.status || "TBA",
+            registered,
+            capacity: registered > 0 ? Math.ceil(registered * 1.35) : 0,
+            logo: row.image || (row.source === "devfolio" ? "DF" : "DP"),
+            featured: idx < 6,
+            applyUrl: row.url,
+          };
+        });
+
+        setHackathons(mapped);
+      })
+      .catch(() => {
+        if (alive) setHackathons([]);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const filtered = useMemo(() => hackathons.filter((h) => {
     if (activeFilter === "All")      return true;
     if (activeFilter === "Online")   return h.mode === "online";
     if (activeFilter === "Offline")  return h.mode === "offline";
     if (activeFilter === "Beginner") return h.difficulty === "Beginner";
     if (activeFilter === "Advanced") return h.difficulty === "Advanced";
     return true;
-  });
+  }), [activeFilter, hackathons]);
+
+  const totalPrize = useMemo(() => {
+    const sum = filtered.reduce((acc, h) => {
+      const m = String(h.prize).replace(/,/g, "").match(/(?:\u20B9|rs\.?|inr|\$)\s*(\d+)/i);
+      return acc + (m ? Number(m[1]) : 0);
+    }, 0);
+    return sum > 0 ? sum.toLocaleString() : "N/A";
+  }, [filtered]);
+
+  const totalParticipants = useMemo(
+    () => filtered.reduce((acc, h) => acc + (Number(h.registered) || 0), 0),
+    [filtered]
+  );
 
   return (
     <>
@@ -130,14 +149,12 @@ export default function HackathonsSection() {
 
       <section id="hackathons" className="hack-section">
         <div className="hack-section-inner">
-          {/* Section label */}
           <div className="sec-label">Phase_01 // Hackathons</div>
 
-          {/* Header */}
           <div className="hack-header">
             <div>
               <h2 className="hack-h2">Compete. Build. Win.</h2>
-              <p className="hack-sub">Hand-picked hackathons from top organizations across the globe. Filter by skill level, prize pool, or domain.</p>
+              <p className="hack-sub">Live hackathons from your scraped dataset. Filter by mode and level.</p>
             </div>
             <div className="hack-filters">
               {FILTERS.map((f) => (
@@ -152,13 +169,12 @@ export default function HackathonsSection() {
             </div>
           </div>
 
-          {/* Stats bar */}
           <div className="hack-stats-bar">
             {[
-              { val: "142",    lbl: "Live Hackathons" },
-              { val: "$4.2M+", lbl: "Total Prize Money" },
-              { val: "58",     lbl: "Countries Covered" },
-              { val: "1.2M+",  lbl: "Registered Teams" },
+              { val: String(filtered.length), lbl: "Live Hackathons" },
+              { val: totalPrize === "N/A" ? "N/A" : `~${totalPrize}`, lbl: "Total Prize Money" },
+              { val: String(new Set(filtered.map((h) => h.location)).size), lbl: "Locations Covered" },
+              { val: totalParticipants.toLocaleString(), lbl: "Participants" },
             ].map(({ val, lbl }) => (
               <div key={lbl} style={{ textAlign: "center" }}>
                 <div className="stat-val">{val}</div>
@@ -167,20 +183,18 @@ export default function HackathonsSection() {
             ))}
           </div>
 
-          {/* Cards grid */}
           <div className="hack-grid">
-            {filtered.map((h, i) => (
+            {filtered.map((h) => (
               <HackathonCard
-                key={i}
+                key={h.id}
                 {...h}
-                onApply={() => alert(`Registering for ${h.title}`)}
+                onApply={() => window.open(h.applyUrl, "_blank", "noopener,noreferrer")}
               />
             ))}
           </div>
 
-          {/* Load more */}
           <div className="hack-load-more">
-            <button className="btn-ghost">Load More Hackathons →</button>
+            <button className="btn-ghost">Loaded from JSON dataset</button>
           </div>
         </div>
       </section>

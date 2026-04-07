@@ -18,12 +18,19 @@ OUTPUT_DIR     = Path(__file__).parent
 SCROLL_WAIT_MS = 3000
 MAX_STALE      = 8
 CHECKPOINT_N   = 100
+TARGET_PER_SOURCE = 100
+DETAIL_WAIT_MS = 2500
 
 FIELDS = ["source","name","url","dates","location","status",
           "prize","participants","themes","image","raw"]
 
 def log(msg):
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
+    line = f"[{datetime.now().strftime('%H:%M:%S')}] {msg}"
+    try:
+        print(line, flush=True)
+    except UnicodeEncodeError:
+        safe_line = line.encode("ascii", "replace").decode("ascii")
+        print(safe_line, flush=True)
 
 def save(records, csv_path, json_path, label=""):
     with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
@@ -53,6 +60,13 @@ async def scroll_and_extract(config: dict, csv_path, json_path, existing: list) 
     all_records = list(existing)
     last_chk    = len(all_records)
     source      = config["source_tag"]
+    existing_source_count = sum(1 for r in existing if r.get("source") == source)
+    remaining_target = max(0, TARGET_PER_SOURCE - existing_source_count)
+    source_added_total = 0
+
+    if remaining_target == 0:
+        log(f"{config['name']} already has {TARGET_PER_SOURCE} records. Skipping scrape.")
+        return all_records
 
     log("=" * 60)
     log(f"{config['name']}  — Playwright scroll scraper")
@@ -167,9 +181,15 @@ async def scroll_and_extract(config: dict, csv_path, json_path, existing: list) 
                             seen_urls.add(u)
                             all_records.append(rec)
                             added += 1
+                            source_added_total += 1
+                            if source_added_total >= remaining_target:
+                                break
                     if added:
                         last_chk = cur
                         save(all_records, csv_path, json_path, f"(+{added} from {source})")
+                    if source_added_total >= remaining_target:
+                        log(f"  Target reached for {source}: {TARGET_PER_SOURCE}")
+                        break
 
                 await page.evaluate("""
                     window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
@@ -183,17 +203,126 @@ async def scroll_and_extract(config: dict, csv_path, json_path, existing: list) 
 
         # Final extract
         batch = await do_extract()
+        final_added = 0
         for rec in batch:
             u = rec.get("url","")
             if u and u not in seen_urls:
                 seen_urls.add(u)
                 all_records.append(rec)
+                final_added += 1
+                source_added_total += 1
+                if source_added_total >= remaining_target:
+                    break
 
         await browser.close()
 
     added_total = len(all_records) - len(existing)
     log(f"{config['name']} done: {added_total} new hackathons")
     return all_records
+
+
+async def enrich_devfolio_details(records: list, max_items: int = TARGET_PER_SOURCE) -> list:
+    devfolio_records = [r for r in records if r.get("source") == "devfolio" and r.get("url")]
+    if not devfolio_records:
+        return records
+
+    target = min(len(devfolio_records), max_items)
+    log(f"Enriching Devfolio detail pages: {target} records")
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage",
+                  "--disable-blink-features=AutomationControlled"],
+        )
+        ctx = await browser.new_context(
+            viewport={"width": 1440, "height": 900},
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            locale="en-US",
+        )
+        page = await ctx.new_page()
+        await page.add_init_script(
+            "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});"
+        )
+
+        for i, rec in enumerate(devfolio_records[:target], start=1):
+            try:
+                await page.goto(rec["url"], wait_until="domcontentloaded", timeout=60_000)
+                await page.wait_for_timeout(DETAIL_WAIT_MS)
+
+                detail = await page.evaluate("""
+                () => {
+                    function txt(el){ return el ? (el.innerText || el.textContent || '').trim() : ''; }
+                    function meta(sel){
+                        const el = document.querySelector(sel);
+                        return el ? (el.getAttribute('content') || '').trim() : '';
+                    }
+                    function findFromText(text, patterns){
+                        for (const p of patterns){
+                            const m = text.match(p);
+                            if (m && m[0]) return m[0].trim();
+                        }
+                        return '';
+                    }
+
+                    const bodyText = (document.body?.innerText || '').replace(/\\s+/g, ' ').trim();
+                    const title = txt(document.querySelector('h1')) || document.title.replace(/\\s*\\|.*$/, '').trim();
+
+                    const chips = [...document.querySelectorAll(
+                        '[class*="tag"],[class*="Tag"],[class*="chip"],[class*="Chip"],a[href*="/tags/"],a[href*="/theme"]'
+                    )]
+                        .map(el => txt(el))
+                        .filter(Boolean);
+                    const uniqueChips = [...new Set(chips)].slice(0, 12).join(', ');
+
+                    const dates = findFromText(bodyText, [
+                        /(Registration(s)? (close|end)s?[^.]{0,80})/i,
+                        /(Deadline[^.]{0,80})/i,
+                        /(Starts?[^.]{0,80}Ends?[^.]{0,80})/i,
+                        /([A-Za-z]{3,9}\\s+\\d{1,2},\\s+\\d{4}\\s*[\\-–]\\s*[A-Za-z]{3,9}\\s+\\d{1,2},\\s+\\d{4})/
+                    ]);
+                    const location = findFromText(bodyText, [
+                        /(Online|Offline|Hybrid)/i,
+                        /(Bengaluru|Bangalore|Mumbai|Delhi|Pune|Hyderabad|Chennai|Kolkata)/i
+                    ]);
+                    const status = findFromText(bodyText, [
+                        /(Open|Live|Upcoming|Closed|Ended|Ongoing)/i
+                    ]);
+                    const prize = findFromText(bodyText, [
+                        /((INR|Rs\\.?|₹|USD|\\$)\\s?[\\d,]+(?:\\+)?)/i,
+                        /(Prize[^.]{0,80})/i
+                    ]);
+                    const participants = findFromText(bodyText, [
+                        /((participants?|registrations?|teams?)\\s*[:\\-]?\\s*[\\d,]+)/i
+                    ]);
+
+                    const description = meta('meta[name="description"]') || meta('meta[property="og:description"]');
+                    const image = meta('meta[property="og:image"]');
+                    const raw = (description || bodyText).slice(0, 800);
+
+                    return { title, dates, location, status, prize, participants, themes: uniqueChips, image, raw };
+                }
+                """)
+
+                if detail:
+                    if detail.get("title"):
+                        rec["name"] = detail["title"]
+                    for k in ["dates", "location", "status", "prize", "participants", "themes", "image", "raw"]:
+                        if detail.get(k):
+                            rec[k] = detail[k]
+
+                if i % 10 == 0 or i == target:
+                    log(f"  Devfolio detail enrich: {i}/{target}")
+            except Exception as e:
+                log(f"  Devfolio detail error ({rec.get('url','')}): {e}")
+
+        await browser.close()
+
+    return records
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -362,12 +491,19 @@ async def main():
     records = []
     try:
         records = await scroll_and_extract(DEVPOST_CONFIG, csv_path, json_path, records)
+        devpost_only = [r for r in records if r["source"] == "devpost"][:TARGET_PER_SOURCE]
+        others = [r for r in records if r["source"] != "devpost"]
+        records = devpost_only + others
     except Exception as e:
         log(f"Devpost error: {e}")
 
     # ── Devfolio second ───────────────────────────────────────────────────────
     try:
         records = await scroll_and_extract(DEVFOLIO_CONFIG, csv_path, json_path, records)
+        devpost_only = [r for r in records if r["source"] == "devpost"][:TARGET_PER_SOURCE]
+        devfolio_only = [r for r in records if r["source"] == "devfolio"][:TARGET_PER_SOURCE]
+        records = devpost_only + devfolio_only
+        records = await enrich_devfolio_details(records, max_items=TARGET_PER_SOURCE)
     except Exception as e:
         log(f"Devfolio error: {e}")
 
